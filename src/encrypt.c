@@ -447,6 +447,12 @@ enc_table_init(const char *pass)
     for (i = 0; i < 256; ++i)
         // gen decrypt table from encrypt table
         dec_table[enc_table[i]] = i;
+
+    enc_key_len = strlen(pass);
+    memcpy(&enc_key, pass, enc_key_len);
+
+    enc_iv_len = 0;
+
 }
 
 int

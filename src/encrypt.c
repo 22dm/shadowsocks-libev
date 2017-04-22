@@ -713,6 +713,7 @@ cipher_context_init(cipher_ctx_t *ctx, int method, int enc)
     }
 #endif
 
+    LOGE("method %d", method);
     const cipher_kt_t *cipher = get_cipher_type(method);
 
 #if defined(USE_CRYPTO_OPENSSL)

@@ -1147,7 +1147,7 @@ new_server(int fd, int method)
     server->recv_ctx->server    = server;
     server->send_ctx->server    = server;
 
-    if (method) {
+    if (method > 1) {
         server->e_ctx = ss_malloc(sizeof(struct enc_ctx));
         server->d_ctx = ss_malloc(sizeof(struct enc_ctx));
         enc_ctx_init(method, server->e_ctx, 1);

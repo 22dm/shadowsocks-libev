@@ -759,7 +759,6 @@ server_recv_cb(EV_P_ ev_io *w, int revents)
             _server_info.iv_len = enc_get_iv_len();
             _server_info.key = enc_get_key();
             _server_info.key_len = enc_get_key_len();
-            LOGE("key:%s %d", _server_info.key, (int)_server_info.key_len);
             _server_info.tcp_mss = 1448;
 
             if (server->obfs_plugin)

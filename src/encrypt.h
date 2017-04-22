@@ -129,8 +129,8 @@ typedef struct {
 #define SODIUM_BLOCK_SIZE   64
 
 enum crpher_index {
-    NONE = -1,
-    TABLE = 0,
+    NONE,
+    TABLE,
     RC4,
     RC4_MD5_6,
     RC4_MD5,

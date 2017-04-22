@@ -105,6 +105,7 @@ dump(char *tag, char *text, int len)
 #endif
 
 static const char *supported_ciphers[CIPHER_NUM] = {
+    "none",
     "table",
     "rc4",
     "rc4-md5-6",
@@ -131,6 +132,7 @@ static const char *supported_ciphers[CIPHER_NUM] = {
 
 #ifdef USE_CRYPTO_POLARSSL
 static const char *supported_ciphers_polarssl[CIPHER_NUM] = {
+    "none",
     "table",
     "ARC4-128",
     "ARC4-128",
@@ -158,6 +160,7 @@ static const char *supported_ciphers_polarssl[CIPHER_NUM] = {
 
 #ifdef USE_CRYPTO_MBEDTLS
 static const char *supported_ciphers_mbedtls[CIPHER_NUM] = {
+    "none",
     "table",
     "ARC4-128",
     "ARC4-128",
@@ -186,6 +189,7 @@ static const char *supported_ciphers_mbedtls[CIPHER_NUM] = {
 #ifdef USE_CRYPTO_APPLECC
 static const CCAlgorithm supported_ciphers_applecc[CIPHER_NUM] = {
     kCCAlgorithmInvalid,
+    kCCAlgorithmInvalid,
     kCCAlgorithmRC4,
     kCCAlgorithmRC4,
     kCCAlgorithmRC4,
@@ -212,6 +216,7 @@ static const CCAlgorithm supported_ciphers_applecc[CIPHER_NUM] = {
 static const CCMode supported_modes_applecc[CIPHER_NUM] = {
     kCCAlgorithmInvalid,
     kCCAlgorithmInvalid,
+    kCCAlgorithmInvalid,
     kCCModeRC4,
     kCCModeRC4,
     kCCModeCFB,
@@ -236,11 +241,11 @@ static const CCMode supported_modes_applecc[CIPHER_NUM] = {
 #endif
 
 static const int supported_ciphers_iv_size[CIPHER_NUM] = {
-    0,  0,  6, 16, 16, 16, 16, 16, 16, 16,  8, 16, 16, 16,  8,  8,  8,  8, 16,  8,  8, 12
+    0,  0,  0,  6, 16, 16, 16, 16, 16, 16, 16,  8, 16, 16, 16,  8,  8,  8,  8, 16,  8,  8, 12
 };
 
 static const int supported_ciphers_key_size[CIPHER_NUM] = {
-    0, 16, 16, 16, 16, 24, 32, 16, 24, 32, 16, 16, 24, 32, 16,  8, 16, 16, 16, 32, 32, 32
+    0,  0, 16, 16, 16, 16, 24, 32, 16, 24, 32, 16, 16, 24, 32, 16,  8, 16, 16, 16, 32, 32, 32
 };
 
 static int
@@ -425,36 +430,6 @@ unsigned char *enc_md5(const unsigned char *d, size_t n, unsigned char *md)
 #endif
 }
 
-void
-enc_table_init(const char *pass)
-{
-    uint32_t i;
-    uint64_t key = 0;
-    uint8_t *digest;
-
-    enc_table = ss_malloc(256);
-    dec_table = ss_malloc(256);
-
-    digest = enc_md5((const uint8_t *)pass, strlen(pass), NULL);
-
-    for (i = 0; i < 8; i++)
-        key += OFFSET_ROL(digest, i);
-
-    for (i = 0; i < 256; ++i)
-        enc_table[i] = i;
-    for (i = 1; i < 1024; ++i)
-        merge_sort(enc_table, 256, i, key);
-    for (i = 0; i < 256; ++i)
-        // gen decrypt table from encrypt table
-        dec_table[enc_table[i]] = i;
-
-    enc_key_len = strlen(pass);
-    memcpy(&enc_key, pass, enc_key_len);
-
-    enc_iv_len = 0;
-
-}
-
 int
 cipher_iv_size(const cipher_t *cipher)
 {
@@ -536,7 +511,10 @@ bytes_to_key(const cipher_t *cipher, const digest_type_t *md,
     unsigned int i, j, mds;
 
     mds  = 16;
-    nkey = cipher_key_size(cipher);
+    nkey = 16;
+    if (cipher != NULL) {
+        nkey = cipher_key_size(cipher);
+    }
     if (pass == NULL)
         return nkey;
     memset(&c, 0, sizeof(MD5_CTX));
@@ -565,7 +543,10 @@ bytes_to_key(const cipher_t *cipher, const digest_type_t *md,
     int addmd;
     unsigned int i, j, mds;
 
-    nkey = cipher_key_size(cipher);
+    nkey = 16;
+    if (cipher != NULL) {
+        nkey = cipher_key_size(cipher);
+    }
     mds  = md_get_size(md);
     memset(&c, 0, sizeof(md_context_t));
 
@@ -600,7 +581,10 @@ bytes_to_key(const cipher_t *cipher, const digest_type_t *md,
     int addmd;
     unsigned int i, j, mds;
 
-    nkey = cipher_key_size(cipher);
+    nkey = 16;
+    if (cipher != NULL) {
+        nkey = cipher_key_size(cipher);
+    }
     mds  = mbedtls_md_get_size(md);
     memset(&c, 0, sizeof(mbedtls_md_context_t));
 
@@ -640,7 +624,7 @@ rand_bytes(uint8_t *output, int len)
 const cipher_kt_t *
 get_cipher_type(int method)
 {
-    if (method <= TABLE || method >= CIPHER_NUM) {
+    if (method < NONE || method >= CIPHER_NUM) {
         LOGE("get_cipher_type(): Illegal method");
         return NULL;
     }
@@ -695,7 +679,7 @@ get_digest_type(const char *digest)
 void
 cipher_context_init(cipher_ctx_t *ctx, int method, int enc)
 {
-    if (method <= TABLE || method >= CIPHER_NUM) {
+    if (method < NONE || method >= CIPHER_NUM) {
         LOGE("cipher_context_init(): Illegal method");
         return;
     }
@@ -1192,12 +1176,15 @@ ss_encrypt_all(buffer_t *plain, int method, int auth, size_t capacity)
 
         return 0;
     } else {
-        char *begin = plain->array;
-        char *ptr   = plain->array;
-        while (ptr < begin + plain->len) {
-            *ptr = (char)enc_table[(uint8_t)*ptr];
-            ptr++;
+        if (method == TABLE) {
+            char *begin = plain->array;
+            char *ptr   = plain->array;
+            while (ptr < begin + plain->len) {
+                *ptr = (char)enc_table[(uint8_t)*ptr];
+                ptr++;
+            }
         }
+
         return 0;
     }
 }
@@ -1266,11 +1253,13 @@ ss_encrypt(buffer_t *plain, enc_ctx_t *ctx, size_t capacity)
 
         return 0;
     } else {
-        char *begin = plain->array;
-        char *ptr   = plain->array;
-        while (ptr < begin + plain->len) {
-            *ptr = (char)enc_table[(uint8_t)*ptr];
-            ptr++;
+        if (enc_method == TABLE) {
+            char *begin = plain->array;
+            char *ptr   = plain->array;
+            while (ptr < begin + plain->len) {
+                *ptr = (char)enc_table[(uint8_t)*ptr];
+                ptr++;
+            }
         }
         return 0;
     }
@@ -1340,12 +1329,15 @@ ss_decrypt_all(buffer_t *cipher, int method, int auth, size_t capacity)
 
         return 0;
     } else {
-        char *begin = cipher->array;
-        char *ptr   = cipher->array;
-        while (ptr < begin + cipher->len) {
-            *ptr = (char)dec_table[(uint8_t)*ptr];
-            ptr++;
+        if (method == TABLE) {
+            char *begin = cipher->array;
+            char *ptr   = cipher->array;
+            while (ptr < begin + cipher->len) {
+                *ptr = (char)dec_table[(uint8_t)*ptr];
+                ptr++;
+            }
         }
+
         return 0;
     }
 }
@@ -1425,11 +1417,13 @@ ss_decrypt(buffer_t *cipher, enc_ctx_t *ctx, size_t capacity)
 
         return 0;
     } else {
-        char *begin = cipher->array;
-        char *ptr   = cipher->array;
-        while (ptr < begin + cipher->len) {
-            *ptr = (char)dec_table[(uint8_t)*ptr];
-            ptr++;
+        if(enc_method == TABLE) {
+            char *begin = cipher->array;
+            char *ptr   = cipher->array;
+            while (ptr < begin + cipher->len) {
+                *ptr = (char)dec_table[(uint8_t)*ptr];
+                ptr++;
+            }
         }
         return 0;
     }
@@ -1447,9 +1441,51 @@ enc_ctx_init(int method, enc_ctx_t *ctx, int enc)
 }
 
 void
+enc_table_init(int method, const char *pass)
+{
+    uint32_t i;
+    uint64_t key = 0;
+    uint8_t *digest;
+
+    enc_table = ss_malloc(256);
+    dec_table = ss_malloc(256);
+
+    digest = enc_md5((const uint8_t *)pass, strlen(pass), NULL);
+
+    for (i = 0; i < 8; i++)
+        key += OFFSET_ROL(digest, i);
+
+    for (i = 0; i < 256; ++i)
+        enc_table[i] = i;
+    for (i = 1; i < 1024; ++i)
+        merge_sort(enc_table, 256, i, key);
+    for (i = 0; i < 256; ++i)
+        // gen decrypt table from encrypt table
+        dec_table[enc_table[i]] = i;
+
+    if (method == TABLE) {
+        enc_key_len = strlen(pass);
+        memcpy(&enc_key, pass, enc_key_len);
+    } else {
+        const digest_type_t *md = get_digest_type("MD5");
+
+        enc_key_len = bytes_to_key(NULL, md, (const uint8_t *)pass, enc_key);
+
+        if (enc_key_len == 0) {
+            FATAL("Cannot generate key and IV");
+        }
+    }
+
+    enc_iv_len = 0;
+
+    enc_method = method;
+
+}
+
+void
 enc_key_init(int method, const char *pass)
 {
-    if (method <= TABLE || method >= CIPHER_NUM) {
+    if (method < NONE || method >= CIPHER_NUM) {
         LOGE("enc_key_init(): Illegal method");
         return;
     }
@@ -1541,9 +1577,9 @@ enc_key_init(int method, const char *pass)
 int
 enc_init(const char *pass, const char *method)
 {
-    int m = TABLE;
+    int m = NONE;
     if (method != NULL) {
-        for (m = TABLE; m < CIPHER_NUM; m++)
+        for (m = NONE; m < CIPHER_NUM; m++)
             if (strcmp(method, supported_ciphers[m]) == 0) {
                 break;
             }
@@ -1552,8 +1588,8 @@ enc_init(const char *pass, const char *method)
             m = RC4_MD5;
         }
     }
-    if (m == TABLE) {
-        enc_table_init(pass);
+    if (m <= TABLE) {
+        enc_table_init(m, pass);
     } else {
         enc_key_init(m, pass);
     }

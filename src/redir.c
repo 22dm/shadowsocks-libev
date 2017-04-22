@@ -726,7 +726,7 @@ new_server(int fd, int method)
     server->hostname     = NULL;
     server->hostname_len = 0;
 
-    if (method) {
+    if (method > 1) {
         server->e_ctx = ss_malloc(sizeof(enc_ctx_t));
         server->d_ctx = ss_malloc(sizeof(enc_ctx_t));
         enc_ctx_init(method, server->e_ctx, 1);

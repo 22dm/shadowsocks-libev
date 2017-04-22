@@ -690,7 +690,7 @@ new_server(int fd, int method)
     server->send_ctx->server    = server;
     server->send_ctx->connected = 0;
 
-    if (method) {
+    if (method > 1) {
         server->e_ctx = ss_malloc(sizeof(struct enc_ctx));
         server->d_ctx = ss_malloc(sizeof(struct enc_ctx));
         enc_ctx_init(method, server->e_ctx, 1);

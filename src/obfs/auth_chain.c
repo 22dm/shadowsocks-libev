@@ -4,7 +4,7 @@
 #include "obfsutil.h"
 #include "crc32.h"
 #include "base64.h"
-#include "encrypt.h"
+#include "../encrypt.h"
 
 typedef struct shift128plus_ctx {
     uint64_t v[2];

@@ -12,7 +12,7 @@ int rand_bytes(uint8_t *output, int len);
 #include "auth.h"
 #include "auth_chain.h"
 
-#include "encrypt.h"
+#include "../encrypt.h"
 
 void * init_data() {
     return malloc(1);

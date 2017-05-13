@@ -2,7 +2,7 @@
 #include <time.h>
 
 #include "obfsutil.h"
-#include "encrypt.h"
+#include "../encrypt.h"
 
 int get_head_size(char *plaindata, int size, int def_size) {
     if (plaindata == NULL || size < 2)
@@ -62,4 +62,3 @@ void memintcopy_lt(void *mem, uint32_t val) {
     ((uint8_t *)mem)[2] = (uint8_t)(val >> 16);
     ((uint8_t *)mem)[3] = (uint8_t)(val >> 24);
 }
-
